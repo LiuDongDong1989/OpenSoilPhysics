@@ -1,5 +1,5 @@
 import numpy as np
-from swrc.base_model import SWRC_Model
+from base_model import SWRC_Model
 # Model3
 class SWRC_Model3(SWRC_Model):
     def __init__(self, param_bounds=None):

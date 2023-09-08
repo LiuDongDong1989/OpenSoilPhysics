@@ -1,4 +1,6 @@
-from swrc.base_model import SWRC_Model
+import numpy as np
+from base_model import SWRC_Model
+
 # Model4 (Silva)
 class SWRC_Model4_Silva(SWRC_Model):
     def __init__(self, param_bounds=None):

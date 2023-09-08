@@ -1,4 +1,4 @@
-from swrc.base_model import SWRC_Model
+from base_model import SWRC_Model
 
 class SWRC_Model1(SWRC_Model):
     def __init__(self, param_bounds=None):
