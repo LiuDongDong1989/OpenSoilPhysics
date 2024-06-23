@@ -136,89 +136,117 @@ class SWRC_Model1(SWRC_base):
 
     @staticmethod
     def model1_function(x, theta_R, theta_S, alpha, n):
-        """van Genuchten model function.
-
+        """
         Parameters
         ----------
-        x : array-like
-            Input values (e.g., soil water content).
-        theta_R : float
-            Residual water content.
-        theta_S : float
-            Saturated water content.
-        alpha : float
-            Shape parameter.
-        n : float
-            Exponent parameter.
+        x :
+            the matric potential.
+        theta_R :
+            the residual water content.
+        theta_S :
+            the water content at saturation.
+        alpha :
+            a scale parameter of the van Genuchten’s formula.
+        n :
+            a shape parameter in van Genuchten’s formula.
+        m :
+            a shape parameter in van Genuchten’s Formula. Default is 1 − 1/n (Mualem,1976).
 
         Returns
         -------
         array-like
             Predicted output values.
+
+        References
+        -------
+            [1]Genuchten, M. T. van. (1980). A closed form equation for predicting the hydraulic conductivity of
+            unsaturated soils. Soil Science Society of America Journal, 44:892-898.
+            [2]Mualem, Y. (1976). A new model for predicting the hydraulic conductivity of unsaturated porous
+            media. Water Resources Research, 12:513-522.
         """
         m = 1 - 1/n
         sat_index = (1 + (alpha * abs(x)) ** n) ** (-m)
+         # If saturation.index is True, return the saturation index, otherwise return the soil water content
         return theta_R + (theta_S - theta_R) * sat_index
 
 # Model2
-class SWRC_Model2(SWRC_base):
-    """SWRC Model 2: Brooks-Corey model."""
+class SWRC_Model2 (SWRC_base):
+    """SWRC Model based on Groenevelt & Grant (2004) model."""
 
     def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model2", self.model2_function, ['k0', 'k1', 'n'], param_bounds)
+        super().__init__("SWRC_Model2", self.model_function, ['x0', 'k0', 'k1', 'n'], param_bounds)
 
     @staticmethod
-    def model2_function(x, k0, k1, n):
-        """Brooks-Corey model function.
+    def model_function(h, x0, k0, k1, n):
+        """Groenevelt & Grant (2004) model function.
 
         Parameters
         ----------
-        x : array-like
-            Input values (e.g., soil water content).
+        h : array-like
+            Pore water suction (hPa).
+        x0 : float
+            The value of pF at which the soil water content becomes zero.The default is 6.653.
         k0 : float
-            Air entry suction.
+            A parameter value.
         k1 : float
-            Slope of the retention curve.
+            A parameter value.
         n : float
-            Exponent parameter.
+            A parameter value.
 
         Returns
         -------
         array-like
-            Predicted output values.
+            Predicted soil water content.
+
+        References
+        -------
+            Groenevelt & Grant (2004). A newmodel for the soil-water retention curve that solves the problem
+            of residualwater contents. European Journal of Soil Science, 55:479-485.
         """
-        return k1 * (np.exp(-k0 / 6.653**n) - np.exp(-k0 / x**n))
+        #  x = logh (pore water suction), and h is in units of hPa
+        x = np.log(h)
+        # Calculate soil water content based on the Groenevelt & Grant (2004) model
+        return k1 * np.exp(-k0 / (x0 ** n)) - k1 * np.exp(-k0 / (x ** n))
 
 # Model3
 class SWRC_Model3(SWRC_base):
-    """SWRC Model 3: Three-parameter exponential model."""
+    """SWRC Model 3: based on the Dexter’s (2008) formula."""
 
     def __init__(self, param_bounds=None):
         super().__init__("SWRC_Model3", self.model3_function, ['theta_R', 'a1', 'p1', 'a2', 'p2'], param_bounds)
 
     @staticmethod
     def model3_function(x, theta_R, a1, p1, a2, p2):
-        """Three-parameter exponential model function.
+        """Soil Water Retention, based on the Dexter’s (2008) formula.
 
         Parameters
         ----------
-        x : array-like
-            Input values (e.g., soil water content).
-        theta_R : float
-            Residual water content.
-        a1 : float
-            Amplitude of the first exponential term.
-        p1 : float
-            Time constant of the first exponential term.
-        a2 : float
-            Amplitude of the second exponential term.
-        p2 : float
-            Time constant of the second exponential term.
+        x :
+            a numeric vector containing the values of applied air pressure.
+        theta_R :
+            a parameter that represents the residual water content.
+        a1 :
+            a parameter that represents the drainable part of the textural pore space in units 
+            of gravimetric water content at saturation.
+        p1 :
+            a parameter that represents the applied air pressures characteristic 
+            for displacement of water from the textural pore space.
+        a2 :
+            a parameter that represents the total structural pore space in units of gravimetric
+            water content at saturation.
+        p2 :
+            a parameter that represents the applied air pressure that is characteristic 
+            for displacing water from the structural pores.
 
         Returns
         -------
         array-like
             Predicted output values.
+
+        References
+        -------
+            [1] Dexter et al. (2008). A user-friendly water retention function that takes account of the textural and
+            structural pore spaces in soil. Geoderma, 143:243-253.
         """
         return theta_R + a1 * np.exp(-x/p1) + a2 * np.exp(-x/p2)
 
@@ -230,28 +258,33 @@ class SWRC_Model4_Silva(SWRC_base):
         super().__init__("SWRC_Model4_Silva", self.model4_silva_function, ['Bd', 'a', 'b', 'c'], param_bounds)
 
     @staticmethod
-    def model4_silva_function(x, Bd, a, b, c):
+    def model4_silva_function(psi, Bd, a, b, c):
         """Silva et al.'s model function.
 
         Parameters
         ----------
-        x : array-like
-            Input values (e.g., soil water content).
-        Bd : float
-            Bulk density.
-        a : float
-            Coefficient for the exponential term.
-        b : float
-            Coefficient for the linear term.
-        c : float
-            Exponent for the input term.
+        psi :
+            a numeric vector containing values of water potential (Psi).
+        Bd :
+            a numeric vector containing values of dry bulk density.
+        a :
+            a model-fitting parameter. See details.
+        b :
+            a model-fitting parameter. See details.
+        c :
+            a model-fitting parameter. See details.
 
         Returns
         -------
         array-like
             Predicted output values.
+
+        References
+        -------  
+            [1]Silva et al. (1994). Characterization of the least limiting water range of soils. Soil Science Society
+            of America Journal, 58:1775-1781.  
         """
-        return np.exp(a + b * Bd) * x ** c
+        return np.exp(a + b * Bd) * psi ** c
 
 # Model4 (Ross)
 class SWRC_Model4_Ross(SWRC_base):
@@ -261,56 +294,67 @@ class SWRC_Model4_Ross(SWRC_base):
         super().__init__("SWRC_Model4_Ross", self.model4_ross_function, ['a', 'c'], param_bounds)
 
     @staticmethod
-    def model4_ross_function(x, a, c):
+    def model4_ross_function(psi, a, c):
         """Ross's model function.
 
         Parameters
         ----------
-        x : array-like
-            Input values (e.g., soil water content).
-        a : float
-            Coefficient for the power law term.
-        c : float
-            Exponent for the input term.
+        psi :
+            a numeric vector containing values of water potential (Psi).
+        a :
+            a model-fitting parameter. See details.
+        c :
+            a model-fitting parameter. See details.
 
         Returns
         -------
         array-like
             Predicted output values.
+
+        References
+        -------  
+            [1]Ross et al. (1991). Equation for extending water-retention curves to dryness. Soil Science Society
+            of America Journal, 55:923-927.
         """
-        return a * x ** c
+        return a * psi ** c
 
 # Model5
 class SWRC_Model5(SWRC_base):
-    """SWRC Model 5: Five-parameter model."""
+    """SWRC Model 5: Soil Water Retention, based on the modified van Genuchten’s formula"""
 
     def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model5", self.model5_function, ['theta_R', 'theta_S', 'sat_index', 'b0', 'b1', 'b2'], param_bounds)
+        super().__init__("SWRC_Model5", self.model5_function, ['theta_R', 'theta_S', 'alpha', 'n', 'b0', 'b1', 'b2'], param_bounds)
 
     @staticmethod
-    def model5_function(x, theta_R, theta_S, sat_index, b0, b1, b2):
-        """Five-parameter model function.
+    def model5_function(x, theta_R, theta_S, alpha, n, b0, b1, b2):
+        """Function to calculate the soil water content based on the modified van Genuchten’s formula, as
+            suggested by Pierson and Mulla (1989).
 
         Parameters
         ----------
-        x : array-like
-            Input values (e.g., soil water content).
-        theta_R : float
-            Residual water content.
-        theta_S : float
-            Saturated water content.
-        sat_index : float
-            Saturation index.
-        b0 : float
-            Intercept of the linear term.
-        b1 : float
-            Coefficient for the linear term.
-        b2 : float
-            Coefficient for the quadratic term.
+        x:
+            the matric potential.
+        theta_R:
+            the residual water content.
+        theta_S: 
+            the water content at saturation.
+        alpha: 
+            a scale parameter of the van Genuchten’s formula.
+        n:
+            a shape parameter in van Genuchten’s formula.
+        m: 
+            a shape parameter in van Genuchten’s Formula. Default is 1 − 1/n (Mualem,1976).
 
         Returns
         -------
         array-like
             Predicted output values.
+        
+        References
+        -------  
+            [1]Pierson, F.B.; Mulla, D.J. (1989) An Improved Method for Measuring Aggregate Stability of a
+            Weakly Aggregated Loessial Soil. Soil Sci. Soc. Am. J., 53:1825–1831.
         """
+        m = 1 - 1/n
+        sat_index = (1 + (alpha * abs(x)) ** n) ** (-m)
         return theta_R + (theta_S - theta_R) * sat_index + b0 + b1 * x + b2 * x**2
