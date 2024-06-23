@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Assuming all models have similar structure for simplicity
-from models import model1, model2, model3, model4, model5
+import SWRC
 
 class SWRC_GUI(tk.Tk):
     def __init__(self):
