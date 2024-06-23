@@ -1,4 +1,4 @@
-from base_model import SWRC_Model
+from PYSOILPHYSICS.base_model import SWRC_Model
 # Model5
 class SWRC_Model5(SWRC_Model):
     def __init__(self, param_bounds=None):

@@ -1,5 +1,5 @@
 import numpy as np
-from base_model import SWRC_Model
+from PYSOILPHYSICS.base_model import SWRC_Model
 
 # Model2
 class SWRC_Model2(SWRC_Model):
