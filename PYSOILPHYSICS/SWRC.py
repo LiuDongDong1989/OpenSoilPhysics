@@ -127,30 +127,31 @@ class SWRC_base:
         """Return a string representation of the model."""
         return f"{self.model_name} with parameters: {self.params}"
 
-# Model1
-class SWRC_Model1(SWRC_base):
-    """SWRC Model 1: van Genuchten model."""
+# Model vanGenuchten （常用）
+class vanGenuchten (SWRC_base):
+    """van Genuchten model"""
 
     def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model1", self.model1_function, ['theta_R', 'theta_S', 'alpha', 'n'], param_bounds)
+        super().__init__("vanGenuchten", self.model_function, ['theta_r', 'theta_s', 'alpha', 'n'], param_bounds)
 
     @staticmethod
-    def model1_function(x, theta_R, theta_S, alpha, n):
+    def model_function(x, theta_r, theta_s, alpha, n):
         """
         Parameters
         ----------
         x :
-            the matric potential.
-        theta_R :
-            the residual water content.
-        theta_S :
-            the water content at saturation.
+            the matric potential, （hPa or cm).
+            备注：1百帕(hPa) = 1.01974厘米水柱(cmH2O)
+        theta_r :
+            the residual water content (cm3 cm−3).
+        theta_s :
+            the water content at saturation (cm3 cm−3).
         alpha :
-            a scale parameter of the van Genuchten’s formula.
+            a scale parameter of the van Genuchten’s formula(hPa−1).
         n :
-            a shape parameter in van Genuchten’s formula.
+            a shape parameter in van Genuchten’s formula(dimensionless).
         m :
-            a shape parameter in van Genuchten’s Formula. Default is 1 − 1/n (Mualem,1976).
+            a shape parameter in van Genuchten’s Formula. Default is 1 − 1/n (Mualem,1976)(dimensionless).
 
         Returns
         -------
@@ -158,7 +159,7 @@ class SWRC_Model1(SWRC_base):
             Predicted output values.
 
         References
-        -------
+        ----------
             [1]Genuchten, M. T. van. (1980). A closed form equation for predicting the hydraulic conductivity of
             unsaturated soils. Soil Science Society of America Journal, 44:892-898.
             [2]Mualem, Y. (1976). A new model for predicting the hydraulic conductivity of unsaturated porous
@@ -166,15 +167,97 @@ class SWRC_Model1(SWRC_base):
         """
         m = 1 - 1/n
         sat_index = (1 + (alpha * abs(x)) ** n) ** (-m)
-         # If saturation.index is True, return the saturation index, otherwise return the soil water content
-        return theta_R + (theta_S - theta_R) * sat_index
+        return theta_r + (theta_s - theta_r) * sat_index
 
-# Model2
-class SWRC_Model2 (SWRC_base):
-    """SWRC Model based on Groenevelt & Grant (2004) model."""
+# Model BrooksCorey （常用）
+class BrooksCorey(SWRC_base):
+    """Brooks and Corey model for soil water retention curve."""
 
     def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model2", self.model_function, ['x0', 'k0', 'k1', 'n'], param_bounds)
+        super().__init__("BrooksCorey", self.model_function, ['theta_r', 'theta_s', 'lambda_', 'p_c'], param_bounds)
+
+    @staticmethod
+    def model_function(x, theta_r, theta_s, lambda_, p_c):
+        """
+        Parameters
+        ----------
+        x : array-like
+            Matric potential (hPa or cm).
+        theta_R : float
+            Residual water content (cm^3/cm^3).
+        theta_S : float
+            Saturation water content (cm^3/cm^3).
+        lambda_ : float
+            Brooks-Corey model parameter (dimensionless).
+        p_c : float
+            Capillary pressure at the air-entry value (hPa or cm).
+
+        Returns
+        -------
+        array-like
+            Predicted soil water content (cm^3/cm^3).
+
+        References
+        ----------
+            [1]Brooks, R. H., & Corey, A. T. (1964). Hydraulic properties of porous
+            media and their relation to drainage design. Transactions of the ASAE,
+            7, 26–28. https://doi.org/10.13031/2013.40684
+        """
+        Se = np.where(x > p_c, abs((x / p_c) ** lambda_), 1)
+        return theta_r + (theta_s - theta_r) * Se
+
+# Model Durner （常用）
+class Durner(SWRC_base):
+    """Durner model for soil water retention curve."""
+
+    def __init__(self, param_bounds=None):
+        super().__init__("Durner", self.model_function, ['theta_r', 'theta_s', 'alpha1', 'n1', 'alpha2', 'n2', 'w1'], param_bounds)
+
+    @staticmethod
+    def model_function(x, theta_r, theta_s, alpha1, n1, alpha2, n2, w1):
+        """
+        Parameters
+        ----------
+        x : array-like
+            Matric potential (hPa or cm).
+        theta_r : float
+            Residual water content (cm^3/cm^3).
+        theta_s : float
+            Saturation water content (cm^3/cm^3).
+        alpha1 : float
+            Scale parameter for the first pore system (hPa^-1).
+        n1 : float
+            Shape parameter for the first pore system (dimensionless).
+        alpha2 : float
+            Scale parameter for the second pore system (hPa^-1).
+        n2 : float
+            Shape parameter for the second pore system (dimensionless).
+        w1 : float
+            Weight factor for the first pore system (dimensionless).
+
+        Returns
+        -------
+        array-like
+            Predicted soil water content (cm^3/cm^3).
+
+        References
+        ----------
+            [1]Durner, W. (1994). Hydraulic conductivity estimation for soils with heterogeneous pore structure. 
+            Water Resources Research, 30, 211–223. https://doi.org/10.1029/93WR02676
+        """
+        m1 = 1 - 1/n1
+        m2 = 1 - 1/n2
+        Se1 = (1 + (alpha1 * abs(x)) ** n1) ** (-m1)
+        Se2 = (1 + (alpha2 * abs(x)) ** n2) ** (-m2)
+        Se = w1 * Se1 + (1 - w1) * Se2
+        return theta_r + (theta_s - theta_r) * Se
+
+# Model GroeneveltGrant （不常用）
+class GroeneveltGrant (SWRC_base):
+    """Groenevelt & Grant (2004) model."""
+
+    def __init__(self, param_bounds=None):
+        super().__init__("GroeneveltGrant", self.model_function, ['x0', 'k0', 'k1', 'n'], param_bounds)
 
     @staticmethod
     def model_function(h, x0, k0, k1, n):
@@ -185,7 +268,7 @@ class SWRC_Model2 (SWRC_base):
         h : array-like
             Pore water suction (hPa).
         x0 : float
-            The value of pF at which the soil water content becomes zero.The default is 6.653.
+            The value of pF at which the soil water content becomes zero. The default is 6.653.
         k0 : float
             A parameter value.
         k1 : float
@@ -204,26 +287,26 @@ class SWRC_Model2 (SWRC_base):
             of residualwater contents. European Journal of Soil Science, 55:479-485.
         """
         #  x = logh (pore water suction), and h is in units of hPa
-        x = np.log(h)
+        x = np.log10(h)
         # Calculate soil water content based on the Groenevelt & Grant (2004) model
         return k1 * np.exp(-k0 / (x0 ** n)) - k1 * np.exp(-k0 / (x ** n))
 
-# Model3
-class SWRC_Model3(SWRC_base):
-    """SWRC Model 3: based on the Dexter’s (2008) formula."""
+# Model Dexter （不常用）
+class Dexter(SWRC_base):
+    """Dexter’s (2008) formula."""
 
     def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model3", self.model3_function, ['theta_R', 'a1', 'p1', 'a2', 'p2'], param_bounds)
+        super().__init__("Dexter", self.model_function, ['theta_r', 'a1', 'p1', 'a2', 'p2'], param_bounds)
 
     @staticmethod
-    def model3_function(x, theta_R, a1, p1, a2, p2):
+    def model_function(x, theta_r, a1, p1, a2, p2):
         """Soil Water Retention, based on the Dexter’s (2008) formula.
 
         Parameters
         ----------
         x :
             a numeric vector containing the values of applied air pressure.
-        theta_R :
+        theta_r :
             a parameter that represents the residual water content.
         a1 :
             a parameter that represents the drainable part of the textural pore space in units 
@@ -248,85 +331,17 @@ class SWRC_Model3(SWRC_base):
             [1] Dexter et al. (2008). A user-friendly water retention function that takes account of the textural and
             structural pore spaces in soil. Geoderma, 143:243-253.
         """
-        return theta_R + a1 * np.exp(-x/p1) + a2 * np.exp(-x/p2)
+        return theta_r + a1 * np.exp(-x/p1) + a2 * np.exp(-x/p2)
 
-# Model4 (Silva)
-class SWRC_Model4_Silva(SWRC_base):
-    """SWRC Model 4 (Silva): Silva et al.'s model."""
-
-    def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model4_Silva", self.model4_silva_function, ['Bd', 'a', 'b', 'c'], param_bounds)
-
-    @staticmethod
-    def model4_silva_function(psi, Bd, a, b, c):
-        """Silva et al.'s model function.
-
-        Parameters
-        ----------
-        psi :
-            a numeric vector containing values of water potential (Psi).
-        Bd :
-            a numeric vector containing values of dry bulk density.
-        a :
-            a model-fitting parameter. See details.
-        b :
-            a model-fitting parameter. See details.
-        c :
-            a model-fitting parameter. See details.
-
-        Returns
-        -------
-        array-like
-            Predicted output values.
-
-        References
-        -------  
-            [1]Silva et al. (1994). Characterization of the least limiting water range of soils. Soil Science Society
-            of America Journal, 58:1775-1781.  
-        """
-        return np.exp(a + b * Bd) * psi ** c
-
-# Model4 (Ross)
-class SWRC_Model4_Ross(SWRC_base):
-    """SWRC Model 4 (Ross): Ross's model."""
+# Model ModifiedvanGenuchten (不常用)
+class ModifiedvanGenuchten(SWRC_base):
+    """The modified van Genuchten’s formula"""
 
     def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model4_Ross", self.model4_ross_function, ['a', 'c'], param_bounds)
+        super().__init__("ModifiedvanGenuchten", self.model_function, ['theta_r', 'theta_s', 'alpha', 'n', 'b0', 'b1', 'b2'], param_bounds)
 
     @staticmethod
-    def model4_ross_function(psi, a, c):
-        """Ross's model function.
-
-        Parameters
-        ----------
-        psi :
-            a numeric vector containing values of water potential (Psi).
-        a :
-            a model-fitting parameter. See details.
-        c :
-            a model-fitting parameter. See details.
-
-        Returns
-        -------
-        array-like
-            Predicted output values.
-
-        References
-        -------  
-            [1]Ross et al. (1991). Equation for extending water-retention curves to dryness. Soil Science Society
-            of America Journal, 55:923-927.
-        """
-        return a * psi ** c
-
-# Model5
-class SWRC_Model5(SWRC_base):
-    """SWRC Model 5: Soil Water Retention, based on the modified van Genuchten’s formula"""
-
-    def __init__(self, param_bounds=None):
-        super().__init__("SWRC_Model5", self.model5_function, ['theta_R', 'theta_S', 'alpha', 'n', 'b0', 'b1', 'b2'], param_bounds)
-
-    @staticmethod
-    def model5_function(x, theta_R, theta_S, alpha, n, b0, b1, b2):
+    def model_function(x, theta_r, theta_s, alpha, n, b0, b1, b2):
         """Function to calculate the soil water content based on the modified van Genuchten’s formula, as
             suggested by Pierson and Mulla (1989).
 
@@ -334,9 +349,9 @@ class SWRC_Model5(SWRC_base):
         ----------
         x:
             the matric potential.
-        theta_R:
+        theta_r:
             the residual water content.
-        theta_S: 
+        theta_s: 
             the water content at saturation.
         alpha: 
             a scale parameter of the van Genuchten’s formula.
@@ -357,4 +372,76 @@ class SWRC_Model5(SWRC_base):
         """
         m = 1 - 1/n
         sat_index = (1 + (alpha * abs(x)) ** n) ** (-m)
-        return theta_R + (theta_S - theta_R) * sat_index + b0 + b1 * x + b2 * x**2
+        return theta_r + (theta_s - theta_r) * sat_index + b0 + b1 * x + b2 * x**2
+
+# Model Silva (不常用)
+class Silva(SWRC_base):
+    """Silva et al.'s model."""
+
+    def __init__(self, param_bounds=None):
+        super().__init__("Silva", self.model_function, ['Bd', 'a', 'b', 'c'], param_bounds)
+
+    @staticmethod
+    def model_function(x, Bd, a, b, c):
+        """Silva et al.'s model function.
+
+        Parameters
+        ----------
+        x :
+            a numeric vector containing values of water potential (hPa).
+        Bd :
+            a numeric vector containing values of dry bulk density.
+        a :
+            a model-fitting parameter. See details.
+        b :
+            a model-fitting parameter. See details.
+        c :
+            a model-fitting parameter. See details.
+
+        Returns
+        -------
+        array-like
+            Predicted output values.
+
+        References
+        -------  
+            [1]Silva et al. (1994). Characterization of the least limiting water range of soils. Soil Science Society
+            of America Journal, 58:1775-1781.  
+        """
+        #1 hPa等于0.0102 psi
+        psi = 0.0102 * x
+        return np.exp(a + b * Bd) * psi ** c
+
+# Model Ross (不常用)
+class Ross(SWRC_base):
+    """SWRC Model 4 (Ross): Ross's model."""
+
+    def __init__(self, param_bounds=None):
+        super().__init__("Ross", self.model_function, ['a', 'c'], param_bounds)
+
+    @staticmethod
+    def model_function(x, a, c):
+        """Ross's model function.
+
+        Parameters
+        ----------
+        x :
+            a numeric vector containing values of water potential (hPa).
+        a :
+            a model-fitting parameter. See details.
+        c :
+            a model-fitting parameter. See details.
+
+        Returns
+        -------
+        array-like
+            Predicted output values.
+
+        References
+        -------  
+            [1]Ross et al. (1991). Equation for extending water-retention curves to dryness. Soil Science Society
+            of America Journal, 55:923-927.
+        """
+        #1 hPa等于0.0102 psi
+        psi = 0.0102 * x
+        return a * psi ** c
