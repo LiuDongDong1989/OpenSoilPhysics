@@ -1,138 +1,88 @@
 import numpy as np
 from scipy.optimize import curve_fit
-import matplotlib.pyplot as plt
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# Model_base
+#土壤水分保持曲线模型的基类
 class SWRC_base:
-    """Base class for soil water retention curve models."""
+    """
+    Soil Water Retention Curve base class.
+    """
 
-    def __init__(self, model_name, model_function, param_names, param_bounds=None):
-        """Initialize the model with its name, function, parameter names, and bounds.
-
-        Parameters
-        ----------
-        model_name : str
-            Name of the model.
-        model_function : callable
-            Function that implements the model.
-        param_names : list of str
-            Names of the model parameters.
-        param_bounds : dict, optional
-            Parameter bounds for the model fitting.
+    def __init__(self, model_name: str, model_function, param_names: list, param_dict: dict):
         """
+        Initialize the model with a name, function, and parameter details.
+        
+        :param model_name: The name of the model.
+        :param model_function: The function representing the model.
+        :param param_names: List of parameter names.
+        :param param_dict: Dictionary with parameter names as keys and tuples of (lower, upper) bounds as values.
+        """
+        # Check if param_names and param_dict have the same keys
+        mismatched_keys = set(param_names) ^ set(param_dict.keys())
+        if mismatched_keys:
+            raise ValueError(f"Mismatched keys between param_names and param_dict: {mismatched_keys}. Please check your input.")
+
+        for name, bounds in param_dict.items():
+            if not isinstance(bounds, tuple) or len(bounds) != 2:
+                raise ValueError(f"Parameter '{name}' has an invalid bound setting. It should be a tuple of (lower, upper) bounds.")
+            
         self.model_name = model_name
         self.model_function = model_function
         self.param_names = param_names
-        self.params = None
-        self.param_bounds = self._process_param_bounds(param_bounds, param_names)
-
-    def _process_param_bounds(self, param_bounds, param_names):
-        """Process parameter bounds and return a tuple of lower and upper bounds.
-
-        Parameters
-        ----------
-        param_bounds : dict, optional
-            Parameter bounds for the model fitting.
-        param_names : list of str
-            Names of the model parameters.
-
-        Returns
-        -------
-        tuple of lists
-            A tuple containing two lists: the first list contains the lower bounds for each parameter,
-            and the second list contains the upper bounds.
+        self.param_dict = param_dict
+        self.param_bounds = self._process_param_bounds()
+    
+    def _process_param_bounds(self) -> tuple:
         """
-        if param_bounds:
-            return (list(param_bounds[name][0] for name in param_names),
-                    list(param_bounds[name][1] for name in param_names))
-        else:
-            return None
+        Process parameter bounds and return them as lower and upper bounds.
+        
+        :return: A tuple containing two lists: lower and upper bounds for each parameter.
+        """
+        return ([bound[0] for bound in self.param_dict.values()], [bound[1] for bound in self.param_dict.values()])
+        
+    def forwardCalculation(self, x) -> float:
+        """
+        Predict the output value for a given input.
+        
+        :param x: Input value(s).
+        :return: Predicted output value(s).
+        """
+        if self.param_bounds:
+            raise ValueError("The model has bounded parameters. Please use the 'fit' method to estimate the parameters first.")
+        
+        return self.model_function(x, *self.param_dict.values())
 
-    def fit(self, data):
-        """Fit the model to the data and return the estimated parameters.
-
-        Parameters
-        ----------
-        data : object with attributes x and y
-            Data to fit the model to.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the estimated parameters and their standard errors.
+    def fit(self, data) -> dict:
+        """
+        Fit the model to data and return estimated parameters and error metrics.
+        
+        :param data: Data object with 'x' and 'y' attributes.
+        :return: A dictionary containing estimated parameters and error metrics.
         """
         self.params, covariance = curve_fit(self.model_function, data.x, data.y, bounds=self.param_bounds)
+        
         std_errors = np.sqrt(np.diag(covariance))
-        return dict(zip(self.param_names, zip(self.params, std_errors)))
-    
-    def predict(self, x):
-        """Predict the output value for the given input.
-
-        Parameters
-        ----------
-        x : array-like
-            Input values.
-
-        Returns
-        -------
-        array-like
-            Predicted output values.
-        """
-        return self.model_function(x, *self.params)
-
-    def error_metrics(self, data):
-        """Calculate and return the error metrics.
-
-        Parameters
-        ----------
-        data : object with attributes x and y
-            Data to calculate error metrics on.
-
-        Returns
-        -------
-        tuple
-            A tuple containing MSE, RMSE, MAE, R^2, and NSE.
-        """
-        y_pred = self.predict(data.x)
-        y_true = data.y
-        mse = mean_squared_error(y_true, y_pred)
+        self.param_dict = {name: (param, error) for name, (param, error) in zip(self.param_names, zip(self.params, std_errors))}
+        
+        y_pred = self.model_function(data.x, *self.params)
+        mse = np.mean((y_pred - data.y) ** 2)
         rmse = np.sqrt(mse)
-        mae = mean_absolute_error(y_true, y_pred)
-        r2 = r2_score(y_true, y_pred)
-        nse = 1 - (np.sum((y_true - y_pred) ** 2) / np.sum((y_true - y_true.mean()) ** 2))
-        return mse, rmse, mae, r2, nse
+        mae = np.mean(np.abs(y_pred - data.y))
+        r2 = 1 - (np.sum((data.y - y_pred) ** 2) / np.sum((data.y - np.mean(data.y)) ** 2))
+        error_metrics_dict = {'mse': mse, 'rmse': rmse, 'mae': mae, 'r2': r2}
 
-    def plot(self, data):
-        """Plot the observed data and the fitted model predictions.
+        # Print each key-value pair on a separate line
+        result_dict = {**self.param_dict, **error_metrics_dict}
+        for key, value in result_dict.items():
+            print(f"{key}: {value}")
 
-        Parameters
-        ----------
-        data : object with attributes x and y
-            Data to plot.
-        """
-        self._plot_data_and_predictions(data)
-        mse, rmse, mae, r2, nse = self.error_metrics(data)
-        print(f"Error Metrics for {self.model_name} Model:")
-        print(f"MSE: {mse}, RMSE: {rmse}, MAE: {mae}, R^2: {r2}, NSE: {nse}")
-
-    def _plot_data_and_predictions(self, data):
-        """Plot the observed data and the fitted model predictions."""
-        plt.scatter(data.x, data.y, label="Observed")
-        plt.plot(data.x, self.predict(data.x), 'r-', label=f"Fitted {self.model_name}")
-        plt.legend()
-        plt.show()
-
-    def __str__(self):
-        """Return a string representation of the model."""
-        return f"{self.model_name} with parameters: {self.params}"
-
+        return result_dict
+    
 # Model vanGenuchten （常用）
 class vanGenuchten (SWRC_base):
     """van Genuchten model"""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("vanGenuchten", self.model_function, ['theta_r', 'theta_s', 'alpha', 'n'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("vanGenuchten", self.model_function, ['theta_r', 'theta_s', 'alpha', 'n'], param_dict)
 
     @staticmethod
     def model_function(x, theta_r, theta_s, alpha, n):
@@ -166,18 +116,18 @@ class vanGenuchten (SWRC_base):
             media. Water Resources Research, 12:513-522.
         """
         m = 1 - 1/n
-        sat_index = (1 + (alpha * abs(x)) ** n) ** (-m)
-        return theta_r + (theta_s - theta_r) * sat_index
+        Se = (1 + (alpha * abs(x)) ** n) ** (-m)
+        return theta_r + (theta_s - theta_r) * Se   
 
 # Model BrooksCorey （常用）
 class BrooksCorey(SWRC_base):
     """Brooks and Corey model for soil water retention curve."""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("BrooksCorey", self.model_function, ['theta_r', 'theta_s', 'lambda_', 'p_c'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("BrooksCorey", self.model_function, ['theta_r', 'theta_s', 'lambda_', 'h_a'], param_dict)
 
     @staticmethod
-    def model_function(x, theta_r, theta_s, lambda_, p_c):
+    def model_function(x, theta_r, theta_s, lambda_, h_a):
         """
         Parameters
         ----------
@@ -189,7 +139,7 @@ class BrooksCorey(SWRC_base):
             Saturation water content (cm^3/cm^3).
         lambda_ : float
             Brooks-Corey model parameter (dimensionless).
-        p_c : float
+        h_a : float
             Capillary pressure at the air-entry value (hPa or cm).
 
         Returns
@@ -203,15 +153,15 @@ class BrooksCorey(SWRC_base):
             media and their relation to drainage design. Transactions of the ASAE,
             7, 26–28. https://doi.org/10.13031/2013.40684
         """
-        Se = np.where(x > p_c, abs((x / p_c) ** lambda_), 1)
+        Se = np.where(x > h_a, abs((x / h_a) ** -lambda_), 1)
         return theta_r + (theta_s - theta_r) * Se
 
 # Model Durner （常用）
 class Durner(SWRC_base):
     """Durner model for soil water retention curve."""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("Durner", self.model_function, ['theta_r', 'theta_s', 'alpha1', 'n1', 'alpha2', 'n2', 'w1'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("Durner", self.model_function, ['theta_r', 'theta_s', 'alpha1', 'n1', 'alpha2', 'n2', 'w1'], param_dict)
 
     @staticmethod
     def model_function(x, theta_r, theta_s, alpha1, n1, alpha2, n2, w1):
@@ -256,8 +206,8 @@ class Durner(SWRC_base):
 class GroeneveltGrant (SWRC_base):
     """Groenevelt & Grant (2004) model."""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("GroeneveltGrant", self.model_function, ['x0', 'k0', 'k1', 'n'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("GroeneveltGrant", self.model_function, ['x0', 'k0', 'k1', 'n'], param_dict)
 
     @staticmethod
     def model_function(h, x0, k0, k1, n):
@@ -295,8 +245,8 @@ class GroeneveltGrant (SWRC_base):
 class Dexter(SWRC_base):
     """Dexter’s (2008) formula."""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("Dexter", self.model_function, ['theta_r', 'a1', 'p1', 'a2', 'p2'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("Dexter", self.model_function, ['theta_r', 'a1', 'p1', 'a2', 'p2'], param_dict)
 
     @staticmethod
     def model_function(x, theta_r, a1, p1, a2, p2):
@@ -337,8 +287,8 @@ class Dexter(SWRC_base):
 class ModifiedvanGenuchten(SWRC_base):
     """The modified van Genuchten’s formula"""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("ModifiedvanGenuchten", self.model_function, ['theta_r', 'theta_s', 'alpha', 'n', 'b0', 'b1', 'b2'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("ModifiedvanGenuchten", self.model_function, ['theta_r', 'theta_s', 'alpha', 'n', 'b0', 'b1', 'b2'], param_dict)
 
     @staticmethod
     def model_function(x, theta_r, theta_s, alpha, n, b0, b1, b2):
@@ -378,8 +328,8 @@ class ModifiedvanGenuchten(SWRC_base):
 class Silva(SWRC_base):
     """Silva et al.'s model."""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("Silva", self.model_function, ['Bd', 'a', 'b', 'c'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("Silva", self.model_function, ['Bd', 'a', 'b', 'c'], param_dict)
 
     @staticmethod
     def model_function(x, Bd, a, b, c):
@@ -416,8 +366,8 @@ class Silva(SWRC_base):
 class Ross(SWRC_base):
     """SWRC Model 4 (Ross): Ross's model."""
 
-    def __init__(self, param_bounds=None):
-        super().__init__("Ross", self.model_function, ['a', 'c'], param_bounds)
+    def __init__(self, param_dict=None):
+        super().__init__("Ross", self.model_function, ['a', 'c'], param_dict)
 
     @staticmethod
     def model_function(x, a, c):
