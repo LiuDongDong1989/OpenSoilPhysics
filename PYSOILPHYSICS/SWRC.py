@@ -77,7 +77,7 @@ class SWRC_base:
 
         return result_dict
     
-# Model vanGenuchten （常用）
+# Model vanGenuchten （经典）
 class vanGenuchten (SWRC_base):
     """van Genuchten model"""
 
@@ -119,7 +119,7 @@ class vanGenuchten (SWRC_base):
         Se = (1 + (alpha * abs(x)) ** n) ** (-m)
         return theta_r + (theta_s - theta_r) * Se   
 
-# Model BrooksCorey （常用）
+# Model BrooksCorey （经典）
 class BrooksCorey(SWRC_base):
     """Brooks and Corey model for soil water retention curve."""
 
@@ -156,7 +156,7 @@ class BrooksCorey(SWRC_base):
         Se = np.where(x > h_a, abs((x / h_a) ** -lambda_), 1)
         return theta_r + (theta_s - theta_r) * Se
 
-# Model Durner （常用）
+# Model Durner （经典）
 class Durner(SWRC_base):
     """Durner model for soil water retention curve."""
 
