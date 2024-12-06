@@ -2,6 +2,7 @@
 from PyQt5.QtWidgets import QMainWindow, QMenuBar, QMenu, QAction, QMessageBox
 from ui.about_dialog import AboutDialog  # 从ui模块导入AboutDialog类
 from ui.help_dialog import HelpDialog  # 从ui模块导入HelpDialog类
+from ui.forward_problem_widget import ForwardProblemWidget  # 导入ForwardProblemWidget类
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -56,8 +57,8 @@ class MainWindow(QMainWindow):
         help_dialog.exec_()
 
     def show_forward_problem(self):
-        # 显示正演问题的详细说明
-        QMessageBox.information(self, '正演问题', '正演问题的详细说明。')
+        self.forward_problem_widget = ForwardProblemWidget()
+        self.setCentralWidget(self.forward_problem_widget)
 
     def show_inverse_problem(self):
         # 显示反演问题的详细说明
