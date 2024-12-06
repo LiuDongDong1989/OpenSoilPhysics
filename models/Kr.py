@@ -71,6 +71,8 @@ class Kr:
 
 # 示例：使用 Kr 类计算非饱和导水率
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
     # 创建 Kr 类的实例并通过构造函数指定变量值
     kr_instance = Kr(Ks=1e-5, theta_r=0.1, theta_s=0.4, alpha=0.1, n=2)
 
@@ -83,3 +85,21 @@ if __name__ == "__main__":
     theta_values = [0.2, 0.3, 0.4]
     result_theta = kr_instance.Kr_theta(theta_values)
     print("Result for theta values:", result_theta)
+
+    # 绘制 h_values 对应的非饱和导水率图表
+    plt.figure(figsize=(10, 5))  # 设置图表大小
+    plt.subplot(1, 2, 1)  # 创建第一个子图
+    plt.plot(h_values, result, marker='o')  # 绘制折线图，带圆点标记
+    plt.title('Non-saturated Hydraulic Conductivity vs h')  # 设置图表标题
+    plt.xlabel('h (water head)')  # 设置 x 轴标签
+    plt.ylabel('K_r (hydraulic conductivity)')  # 设置 y 轴标签
+
+    # 绘制 theta_values 对应的非饱和导水率图表
+    plt.subplot(1, 2, 2)  # 创建第二个子图
+    plt.plot(theta_values, result_theta, marker='o', color='orange')  # 绘制折线图，带圆点标记，橙色线条
+    plt.title('Non-saturated Hydraulic Conductivity vs theta')  # 设置图表标题
+    plt.xlabel('theta (volumetric water content)')  # 设置 x 轴标签
+    plt.ylabel('K_r (hydraulic conductivity)')  # 设置 y 轴标签
+
+    plt.tight_layout()  # 自动调整子图参数,使之填充整个图像区域。
+    plt.show()  # 显示图表
